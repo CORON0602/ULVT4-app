@@ -1,0 +1,10 @@
+{
+  "name": "ULVT 上肢視覚フィードバック訓練",
+  "short_name": "ULVT",
+  "description": "上肢リハビリテーション自主練習アプリ",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#147d70"
+}

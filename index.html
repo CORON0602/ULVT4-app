@@ -692,6 +692,8 @@ body {
 
 }
 </style>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#147d70">
 </head>
 
 <body>
@@ -2371,6 +2373,21 @@ cancelUnlock.addEventListener(
 
     }
   );
+</script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("./sw.js")
+        .then(() => {
+          console.log("オフライン対応の準備ができました");
+        })
+        .catch((error) => {
+          console.error("登録エラー:", error);
+        });
+    });
+  }
 </script>
 </body>
 </html>
