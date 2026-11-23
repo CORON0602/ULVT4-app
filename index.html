@@ -780,6 +780,53 @@ body {
   white-space: nowrap;
   padding: 12px 16px;
 }
+
+/* 第13回：iPad用の保存動画一覧の表示修正 */
+
+.saved-model-section {
+  background: #eef5f3;
+  color: #243b38;
+  padding: 16px;
+  margin-top: 20px;
+  border-radius: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.saved-model-section h3 {
+  color: #243b38;
+  font-size: 20px;
+}
+
+#savedModelList {
+  color: #243b38;
+  margin-top: 15px;
+}
+
+.saved-model-item {
+  background: #ffffff;
+  color: #243b38;
+  border: 1px solid #d5e4df;
+}
+
+.saved-model-info,
+.saved-model-info strong,
+.saved-model-date {
+  color: #243b38;
+}
+
+#modelLoadStatus {
+  color: #147d70;
+}
+
+.saved-model-section #refreshModelList {
+  background: #147d70;
+  color: white;
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-height: 44px;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -979,6 +1026,7 @@ body {
     playsinline
     loop>
   </video>
+</div>
 <div class="saved-model-section">
   <h3>保存したモデル動画</h3>
 
@@ -991,7 +1039,6 @@ body {
   </div>
 
   <p id="modelLoadStatus" role="status"></p>
-</div>
 </div>
 
 <div class="buttons">
