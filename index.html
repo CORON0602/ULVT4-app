@@ -691,6 +691,95 @@ body {
   }
 
 }
+
+/* 第13回：保存モデル動画の一覧 */
+
+.saved-model-section {
+  margin-top: 24px;
+  padding: 16px;
+  background: #eef5f3;
+  border-radius: 12px;
+}
+
+#savedModelList {
+  margin-top: 15px;
+}
+
+.saved-model-item {
+  background: white;
+  border: 1px solid #d5e4df;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.saved-model-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.saved-model-date {
+  color: #555;
+  font-size: 14px;
+}
+
+.saved-model-item button {
+  background: #147d70;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 16px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+#modelLoadStatus {
+  font-size: 14px;
+  color: #147d70;
+}
+
+/* 第13回 STEP 6：保存動画の削除ボタン */
+
+.saved-model-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.saved-model-item .delete-model-button {
+  background: #c0392b;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 16px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.saved-model-item .delete-model-button:hover {
+  background: #a93226;
+}
+
+/* 保存動画ボタンの表示改善 */
+.saved-model-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.saved-model-actions button {
+  min-width: 100px;
+  white-space: nowrap;
+  padding: 12px 16px;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -890,6 +979,19 @@ body {
     playsinline
     loop>
   </video>
+<div class="saved-model-section">
+  <h3>保存したモデル動画</h3>
+
+  <button type="button" id="refreshModelList">
+    保存動画の一覧を更新
+  </button>
+
+  <div id="savedModelList">
+    保存動画を確認しています...
+  </div>
+
+  <p id="modelLoadStatus" role="status"></p>
+</div>
 </div>
 
 <div class="buttons">
@@ -1238,7 +1340,7 @@ body {
         }
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
 
         if (recordedChunks.length === 0) {
           recordingStatus.textContent =
@@ -1265,8 +1367,21 @@ body {
         recordedVideo.src = recordedUrl;
         recordedVideo.load();
 
-        recordingStatus.textContent =
-          "撮影完了。動画を再生できます。";
+        
+try {
+  const savedId = await saveModelVideo(blob);
+
+  recordingStatus.textContent =
+    "録画完了・モデル動画を保存しました（ID: " +
+    savedId + "）";
+
+} catch (error) {
+  console.error("モデル動画の保存エラー:", error);
+
+  recordingStatus.textContent =
+    "録画は完了しましたが、動画の保存に失敗しました。";
+}
+
       };
 
       mediaRecorder.onerror = () => {
@@ -2388,6 +2503,279 @@ cancelUnlock.addEventListener(
         });
     });
   }
+</script>
+
+<script>
+  // 第13回：モデル動画の保存機能
+
+  const MODEL_DB_NAME = "ULVTModelVideos";
+  const MODEL_STORE_NAME = "videos";
+
+  function openModelDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(MODEL_DB_NAME, 1);
+
+      request.onupgradeneeded = () => {
+        const db = request.result;
+
+        if (!db.objectStoreNames.contains(MODEL_STORE_NAME)) {
+          db.createObjectStore(MODEL_STORE_NAME, {
+            keyPath: "id",
+            autoIncrement: true
+          });
+        }
+      };
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function saveModelVideo(blob) {
+    const db = await openModelDB();
+
+    try {
+      return await new Promise((resolve, reject) => {
+        const transaction = db.transaction(
+          MODEL_STORE_NAME,
+          "readwrite"
+        );
+
+        const store = transaction.objectStore(
+          MODEL_STORE_NAME
+        );
+
+        const videoData = {
+          createdAt: new Date().toISOString(),
+          blob: blob
+        };
+
+        const request = store.add(videoData);
+
+        let savedId;
+
+        request.onsuccess = () => {
+          savedId = request.result;
+        };
+
+        transaction.oncomplete = () => resolve(savedId);
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+    } finally {
+      db.close();
+    }
+  }
+
+  // 保存済みモデル動画を取得する
+  async function getSavedModelVideos() {
+    const db = await openModelDB();
+
+    try {
+      return await new Promise((resolve, reject) => {
+        const transaction = db.transaction(
+          MODEL_STORE_NAME,
+          "readonly"
+        );
+
+        const store = transaction.objectStore(
+          MODEL_STORE_NAME
+        );
+
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+          resolve(request.result);
+        };
+
+        request.onerror = () => {
+          reject(request.error);
+        };
+      });
+    } finally {
+      db.close();
+    }
+  }
+  // 保存したモデル動画を削除する
+  async function deleteSavedModelVideo(id) {
+
+    const confirmed = confirm(
+      "モデル動画 ID：" + id +
+      " を削除しますか？\n" +
+      "削除した動画は元に戻せません。"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const db = await openModelDB();
+
+      try {
+        await new Promise((resolve, reject) => {
+
+          const transaction = db.transaction(
+            MODEL_STORE_NAME,
+            "readwrite"
+          );
+
+          const store = transaction.objectStore(
+            MODEL_STORE_NAME
+          );
+
+          store.delete(id);
+
+          transaction.oncomplete = () => resolve();
+
+          transaction.onerror = () => {
+            reject(transaction.error);
+          };
+
+          transaction.onabort = () => {
+            reject(transaction.error);
+          };
+
+        });
+      } finally {
+        db.close();
+      }
+
+      document.getElementById(
+        "modelLoadStatus"
+      ).textContent =
+        "モデル動画 ID：" + id + " を削除しました。";
+
+      // 削除後に一覧を更新
+      await displaySavedModelVideos();
+
+    } catch (error) {
+      console.error("動画削除エラー:", error);
+
+      alert("動画を削除できませんでした。");
+    }
+  }
+
+  // 保存動画を一覧表示する
+  async function displaySavedModelVideos() {
+    const list = document.getElementById(
+      "savedModelList"
+    );
+
+    list.textContent = "読み込み中...";
+
+    try {
+      const videos = await getSavedModelVideos();
+
+      list.replaceChildren();
+
+      if (videos.length === 0) {
+        list.textContent =
+          "保存されたモデル動画はありません。";
+        return;
+      }
+
+      // 新しい動画から順番に表示
+      videos.sort((a, b) => b.id - a.id);
+
+      videos.forEach((video) => {
+        const item = document.createElement("div");
+        item.className = "saved-model-item";
+
+        const info = document.createElement("div");
+        info.className = "saved-model-info";
+
+        const name = document.createElement("strong");
+        name.textContent = "モデル動画 ID：" + video.id;
+
+        const date = document.createElement("span");
+        date.className = "saved-model-date";
+
+        date.textContent = "保存日時：" +
+          new Date(video.createdAt).toLocaleString("ja-JP");
+
+        info.append(name, date);
+
+        const loadButton = document.createElement("button");
+        loadButton.type = "button";
+        loadButton.textContent = "読み込む";
+
+        loadButton.addEventListener("click", () => {
+          loadSavedModelVideo(video);
+        });
+
+        
+        // 読み込み・削除ボタンをまとめる
+        const buttonArea = document.createElement("div");
+        buttonArea.className = "saved-model-actions";
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.textContent = "削除";
+        deleteButton.className = "delete-model-button";
+
+        deleteButton.addEventListener("click", () => {
+          deleteSavedModelVideo(video.id);
+        });
+
+        buttonArea.append(loadButton, deleteButton);
+
+        item.append(info, buttonArea);
+        list.appendChild(item);
+      });
+
+    } catch (error) {
+      console.error("動画一覧取得エラー:", error);
+
+      list.textContent =
+        "保存動画の取得に失敗しました。";
+    }
+  }
+
+  // 選択した保存動画をモデル動画として読み込む
+  function loadSavedModelVideo(video) {
+    const status = document.getElementById(
+      "modelLoadStatus"
+    );
+
+    if (!(video.blob instanceof Blob)) {
+      status.textContent =
+        "動画データを読み込めませんでした。";
+      return;
+    }
+
+    // 重ね合わせ中なら一度停止する
+    if (typeof stopOverlayTraining === "function") {
+      stopOverlayTraining();
+    }
+
+    // 以前の再生動画を解除
+    recordedVideo.pause();
+    recordedVideo.removeAttribute("src");
+    recordedVideo.load();
+
+    if (recordedUrl) {
+      URL.revokeObjectURL(recordedUrl);
+    }
+
+    // 保存動画を再生用URLに変換
+    recordedUrl = URL.createObjectURL(video.blob);
+
+    recordedVideo.src = recordedUrl;
+    recordedVideo.load();
+
+    status.textContent =
+      "モデル動画 ID：" + video.id +
+      " を読み込みました。重ね合わせ訓練に使用できます。";
+  }
+
+  // 一覧更新ボタン
+  document.getElementById(
+    "refreshModelList"
+  ).addEventListener("click", displaySavedModelVideos);
+
+  // 画面を開いたときに一覧表示
+  displaySavedModelVideos();
 </script>
 </body>
 </html>
