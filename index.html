@@ -978,6 +978,53 @@ body {
   margin-top: 12px;
   cursor: pointer;
 }
+
+
+/* 第18回：動画のエクスポート・インポート */
+
+.saved-model-item .export-model-button {
+  background: #616b76;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-height: 44px;
+  font-size: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.model-import-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: #e9f1f8;
+  color: #243b38;
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+.model-import-section h3,
+.model-import-section p {
+  color: #243b38;
+}
+
+#importModelFile {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  background: #ffffff;
+  color: #243b38;
+  border: 1px solid #aebfc9;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+#modelImportStatus {
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1240,6 +1287,24 @@ body {
   </div>
 
   <p id="modelLoadStatus" role="status"></p>
+<!-- 第18回：動画インポート機能 -->
+<div class="model-import-section">
+
+  <h3>モデル動画をインポート</h3>
+
+  <p>
+    保存した動画ファイルを選択してください。
+  </p>
+
+  <input
+    type="file"
+    id="importModelFile"
+    accept="video/*,.webm,.mp4,.mov,.m4v,.ogv"
+  >
+
+  <p id="modelImportStatus" role="status"></p>
+
+</div>
 </div>
 
 <div class="buttons">
@@ -2844,6 +2909,123 @@ cancelUnlock.addEventListener(
       db.close();
     }
   }
+  // 第18回：動画ファイルをIndexedDBに保存
+  async function importModelVideo(file) {
+
+    if (!file || file.size === 0) {
+      throw new Error("有効な動画ファイルではありません。");
+    }
+
+    const extensionOK =
+      /\.(webm|mp4|mov|m4v|ogv)$/i.test(file.name);
+
+    const mimeOK = file.type.startsWith("video/");
+
+    if (!extensionOK && !mimeOK) {
+      throw new Error("動画ファイルを選択してください。");
+    }
+
+    // 拡張子を除いたファイル名を動画名にする
+    const videoName = file.name
+      .replace(/\.[^.]+$/, "")
+      .replace(/^ULVT_/, "")
+      .trim()
+      .slice(0, 50) || "インポート動画";
+
+    const db = await openModelDB();
+
+    try {
+      return await new Promise((resolve, reject) => {
+
+        const transaction = db.transaction(
+          MODEL_STORE_NAME,
+          "readwrite"
+        );
+
+        const store = transaction.objectStore(
+          MODEL_STORE_NAME
+        );
+
+        const request = store.add({
+          name: videoName,
+          createdAt: new Date().toISOString(),
+          blob: file
+        });
+
+        let importedId;
+
+        request.onsuccess = () => {
+          importedId = request.result;
+        };
+
+        transaction.oncomplete = () => {
+          resolve(importedId);
+        };
+
+        transaction.onerror = () => {
+          reject(transaction.error);
+        };
+
+        transaction.onabort = () => {
+          reject(transaction.error);
+        };
+      });
+
+    } finally {
+      db.close();
+    }
+  }
+  // 第18回：モデル動画をファイルに出力
+  function exportSavedModelVideo(video) {
+
+    if (!(video.blob instanceof Blob)) {
+      alert("動画データが見つかりません。");
+      return;
+    }
+
+    // ファイル名に使えない文字を置き換える
+    const name = (
+      video.name || "モデル動画_" + video.id
+    )
+      .replace(/[\\/:*?"<>|]/g, "_")
+      .trim()
+      .slice(0, 50);
+
+    // 動画形式に応じて拡張子を決める
+    const mime = video.blob.type.toLowerCase();
+
+    let extension = ".webm";
+
+    if (mime.includes("mp4")) {
+      extension = ".mp4";
+    } else if (mime.includes("quicktime")) {
+      extension = ".mov";
+    } else if (mime.includes("ogg")) {
+      extension = ".ogv";
+    } else if (!mime.includes("webm")) {
+      extension = ".video";
+    }
+
+    const filename =
+      "ULVT_" + (name || "モデル動画") + extension;
+
+    // 保存動画を一時的なURLに変換
+    const url = URL.createObjectURL(video.blob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = filename;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    // 保存処理に余裕を持たせてURLを解放
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 60000);
+  }
   // 第17回：バイト数を読みやすく表示する
   function formatStorageSize(bytes) {
 
@@ -3396,10 +3578,23 @@ cancelUnlock.addEventListener(
           renameSavedModelVideo(video.id, currentName);
         });
 
-        // 3つのボタンを配置
+        
+        // 第18回：エクスポートボタン
+        const exportButton = document.createElement("button");
+
+        exportButton.type = "button";
+        exportButton.textContent = "エクスポート";
+        exportButton.className = "export-model-button";
+
+        exportButton.addEventListener("click", () => {
+          exportSavedModelVideo(video);
+        });
+
+        // ボタンの配置
         buttonArea.append(
           loadButton,
           renameButton,
+          exportButton,
           deleteButton
         );
 
@@ -3475,6 +3670,51 @@ document.getElementById(
   "modelVideoSearch"
 ).addEventListener("input", () => {
   displaySavedModelVideos();
+});
+
+// 第18回：動画ファイル選択時の処理
+document.getElementById(
+  "importModelFile"
+).addEventListener("change", async (event) => {
+
+  const input = event.target;
+  const file = input.files[0];
+
+  if (!file) {
+    return;
+  }
+
+  const status = document.getElementById(
+    "modelImportStatus"
+  );
+
+  status.textContent = "動画を保存しています...";
+
+  input.disabled = true;
+
+  try {
+
+    const id = await importModelVideo(file);
+
+    status.textContent =
+      "インポート完了：モデル動画 ID " + id;
+
+    // 動画一覧と保存容量を更新
+    await displaySavedModelVideos();
+    await updateModelStorageInfo();
+
+  } catch (error) {
+
+    console.error("インポートエラー:", error);
+
+    status.textContent =
+      "インポート失敗：" + error.message;
+
+  } finally {
+
+    input.disabled = false;
+    input.value = "";
+  }
 });
 </script>
 </body>
