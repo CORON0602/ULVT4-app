@@ -827,6 +827,30 @@ body {
   padding: 12px 16px;
   min-height: 44px;
 }
+
+
+/* 第14回：動画名変更ボタン */
+
+.saved-model-item .rename-model-button {
+  background: #4968a8;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+  min-height: 44px;
+  min-width: 100px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.saved-model-item .rename-model-button:hover {
+  background: #36538b;
+}
+
+.saved-model-info strong {
+  overflow-wrap: anywhere;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -2643,6 +2667,95 @@ cancelUnlock.addEventListener(
       db.close();
     }
   }
+  // 第14回：モデル動画の名前を変更する
+  async function renameSavedModelVideo(id, currentName) {
+
+    const newName = prompt(
+      "モデル動画の名前を入力してください。",
+      currentName
+    );
+
+    // キャンセルした場合
+    if (newName === null) {
+      return;
+    }
+
+    const trimmedName = newName.trim();
+
+    if (trimmedName === "") {
+      alert("動画名を入力してください。");
+      return;
+    }
+
+    if (trimmedName.length > 50) {
+      alert("動画名は50文字以内にしてください。");
+      return;
+    }
+
+    let db;
+
+    try {
+      db = await openModelDB();
+
+      await new Promise((resolve, reject) => {
+
+        const transaction = db.transaction(
+          MODEL_STORE_NAME,
+          "readwrite"
+        );
+
+        const store = transaction.objectStore(
+          MODEL_STORE_NAME
+        );
+
+        const getRequest = store.get(id);
+
+        getRequest.onsuccess = () => {
+
+          const video = getRequest.result;
+
+          if (!video) {
+            transaction.abort();
+            return;
+          }
+
+          // 既存の動画データを残して名前だけ変更
+          video.name = trimmedName;
+
+          store.put(video);
+        };
+
+        transaction.oncomplete = () => resolve();
+
+        transaction.onerror = () => {
+          reject(transaction.error);
+        };
+
+        transaction.onabort = () => {
+          reject(
+            transaction.error ||
+            new Error("動画が見つからないか、更新できませんでした。")
+          );
+        };
+      });
+
+      document.getElementById(
+        "modelLoadStatus"
+      ).textContent =
+        "動画名を「" + trimmedName + "」に変更しました。";
+
+      await displaySavedModelVideos();
+
+    } catch (error) {
+      console.error("動画名変更エラー:", error);
+      alert("動画名を変更できませんでした。");
+
+    } finally {
+      if (db) {
+        db.close();
+      }
+    }
+  }
   // 保存したモデル動画を削除する
   async function deleteSavedModelVideo(id) {
 
@@ -2733,7 +2846,9 @@ cancelUnlock.addEventListener(
         info.className = "saved-model-info";
 
         const name = document.createElement("strong");
-        name.textContent = "モデル動画 ID：" + video.id;
+        name.textContent =
+  video.name || "モデル動画 ID：" + video.id;
+
 
         const date = document.createElement("span");
         date.className = "saved-model-date";
@@ -2765,7 +2880,27 @@ cancelUnlock.addEventListener(
           deleteSavedModelVideo(video.id);
         });
 
-        buttonArea.append(loadButton, deleteButton);
+        
+        // 名前変更ボタンを作成
+        const renameButton = document.createElement("button");
+
+        renameButton.type = "button";
+        renameButton.textContent = "名前変更";
+        renameButton.className = "rename-model-button";
+
+        renameButton.addEventListener("click", () => {
+          const currentName =
+            video.name || "モデル動画 ID：" + video.id;
+
+          renameSavedModelVideo(video.id, currentName);
+        });
+
+        // 3つのボタンを配置
+        buttonArea.append(
+          loadButton,
+          renameButton,
+          deleteButton
+        );
 
         item.append(info, buttonArea);
         list.appendChild(item);
