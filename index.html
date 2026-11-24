@@ -851,7 +851,32 @@ body {
 .saved-model-info strong {
   overflow-wrap: anywhere;
 }
-</style>
+
+/* 第15回：モデル動画検索機能 */
+
+.model-search-area {
+  margin-top: 14px;
+  margin-bottom: 14px;
+  width: 100%;
+}
+
+#modelVideoSearch {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #243b38;
+  border: 2px solid #b7d4cb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 16px;
+  min-height: 48px;
+}
+
+#modelVideoSearch:focus {
+  outline: 2px solid #147d70;
+  outline-offset: 2px;
+}</style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
 </head>
@@ -1057,6 +1082,15 @@ body {
   <button type="button" id="refreshModelList">
     保存動画の一覧を更新
   </button>
+<!-- 第15回：モデル動画検索欄 -->
+<div class="model-search-area">
+  <input
+    type="search"
+    id="modelVideoSearch"
+    placeholder="動画名で検索（例：リーチ）"
+    autocomplete="off"
+  >
+</div>
 
   <div id="savedModelList">
     保存動画を確認しています...
@@ -2825,7 +2859,28 @@ cancelUnlock.addEventListener(
     list.textContent = "読み込み中...";
 
     try {
-      const videos = await getSavedModelVideos();
+      
+      const allVideos = await getSavedModelVideos();
+
+      // 検索欄に入力した文字を取得
+      const searchInput = document.getElementById(
+        "modelVideoSearch"
+      );
+
+      const keyword = searchInput.value.trim().toLowerCase();
+
+      // 動画名またはIDで検索
+      const videos = allVideos.filter((video) => {
+
+        const videoName = (
+          video.name || "モデル動画 ID：" + video.id
+        ).toLowerCase();
+
+        const videoId = String(video.id);
+
+        return videoName.includes(keyword) ||
+               videoId.includes(keyword);
+      });
 
       list.replaceChildren();
 
@@ -2958,6 +3013,12 @@ cancelUnlock.addEventListener(
 
   // 画面を開いたときに一覧表示
   displaySavedModelVideos();
+// 第15回：検索欄への入力で動画一覧を更新
+document.getElementById(
+  "modelVideoSearch"
+).addEventListener("input", () => {
+  displaySavedModelVideos();
+});
 </script>
 </body>
 </html>
