@@ -876,7 +876,48 @@ body {
 #modelVideoSearch:focus {
   outline: 2px solid #147d70;
   outline-offset: 2px;
-}</style>
+}
+
+/* 第16回：保存動画サムネイル */
+
+.saved-model-thumbnail {
+  display: block;
+  width: 160px;
+  height: 90px;
+  max-width: 100%;
+  object-fit: contain;
+  background: #243b38;
+  border: 1px solid #d5e4df;
+  border-radius: 8px;
+  flex-shrink: 0;
+  color: white;
+  font-size: 12px;
+}
+
+.saved-model-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.saved-model-info {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+/* iPad等の幅の狭い画面への対応 */
+@media (max-width: 650px) {
+  .saved-model-thumbnail {
+    width: 120px;
+    height: 68px;
+  }
+
+  .saved-model-item {
+    align-items: flex-start;
+  }
+}
+</style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
 </head>
@@ -2701,6 +2742,115 @@ cancelUnlock.addEventListener(
       db.close();
     }
   }
+  // 第16回：動画からサムネイル画像を生成
+  function createVideoThumbnail(blob) {
+
+    return new Promise((resolve) => {
+
+      const video = document.createElement("video");
+      const url = URL.createObjectURL(blob);
+
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "auto";
+
+      let finished = false;
+      let targetTime = 0;
+
+      // 読み込みが長引いた場合の対策
+      const timer = setTimeout(() => {
+        finish(null);
+      }, 8000);
+
+      function finish(image) {
+        if (finished) return;
+        finished = true;
+
+        clearTimeout(timer);
+
+        video.onloadedmetadata = null;
+        video.onloadeddata = null;
+        video.onseeked = null;
+        video.onerror = null;
+
+        video.removeAttribute("src");
+        video.load();
+
+        URL.revokeObjectURL(url);
+
+        resolve(image);
+      }
+
+      function captureFrame() {
+        if (finished) return;
+
+        try {
+          if (!video.videoWidth || !video.videoHeight) {
+            return;
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = 160;
+          canvas.height = 90;
+
+          const ctx = canvas.getContext("2d");
+
+          // 黒背景に動画の縦横比を維持して描画
+          ctx.fillStyle = "#000000";
+          ctx.fillRect(0, 0, 160, 90);
+
+          const scale = Math.min(
+            160 / video.videoWidth,
+            90 / video.videoHeight
+          );
+
+          const width = video.videoWidth * scale;
+          const height = video.videoHeight * scale;
+
+          ctx.drawImage(
+            video,
+            (160 - width) / 2,
+            (90 - height) / 2,
+            width,
+            height
+          );
+
+          finish(canvas.toDataURL("image/jpeg", 0.75));
+
+        } catch (error) {
+          console.error("サムネイル生成エラー:", error);
+          finish(null);
+        }
+      }
+
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+
+        if (Number.isFinite(duration) && duration > 0.2) {
+          targetTime = Math.min(0.5, duration / 2);
+
+          try {
+            video.currentTime = targetTime;
+          } catch (error) {
+            targetTime = 0;
+          }
+        }
+      };
+
+      video.onseeked = captureFrame;
+
+      video.onloadeddata = () => {
+        if (targetTime === 0) {
+          captureFrame();
+        }
+      };
+
+      video.onerror = () => finish(null);
+
+      video.src = url;
+      video.load();
+    });
+  }
   // 第14回：モデル動画の名前を変更する
   async function renameSavedModelVideo(id, currentName) {
 
@@ -2895,6 +3045,28 @@ cancelUnlock.addEventListener(
 
       videos.forEach((video) => {
         const item = document.createElement("div");
+        // 第16回：サムネイル表示領域
+        const thumbnail = document.createElement("img");
+
+        thumbnail.className = "saved-model-thumbnail";
+        thumbnail.alt = "モデル動画のサムネイル";
+        thumbnail.width = 160;
+        thumbnail.height = 90;
+
+        // 画像生成前の表示
+        thumbnail.alt = "サムネイルを読み込み中";
+
+        // 保存動画からサムネイルを作成
+        createVideoThumbnail(video.blob).then((image) => {
+
+          if (image) {
+            thumbnail.src = image;
+            thumbnail.alt = "モデル動画の一場面";
+          } else {
+            thumbnail.alt = "サムネイルを表示できません";
+          }
+
+        });
         item.className = "saved-model-item";
 
         const info = document.createElement("div");
@@ -2957,7 +3129,7 @@ cancelUnlock.addEventListener(
           deleteButton
         );
 
-        item.append(info, buttonArea);
+        item.append(thumbnail, info, buttonArea);
         list.appendChild(item);
       });
 
