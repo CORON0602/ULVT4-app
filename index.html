@@ -1052,6 +1052,37 @@ body {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* 第20回：お気に入りのみ表示 */
+
+.model-favorite-filter {
+  margin-top: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: #fff8df;
+  border: 1px solid #e2c66c;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.model-favorite-filter label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #493800;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#favoriteOnlyFilter {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  margin: 0;
+  accent-color: #b58a12;
+  cursor: pointer;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1267,7 +1298,16 @@ body {
     autocomplete="off"
   >
 </div>
-
+<!-- 第20回：お気に入りのみ表示 -->
+<div class="model-favorite-filter">
+  <label for="favoriteOnlyFilter">
+    <input
+      type="checkbox"
+      id="favoriteOnlyFilter"
+    >
+    ★ お気に入りのみ表示
+  </label>
+</div>
   
 <!-- 第17回：保存容量の管理 -->
 <div class="model-storage-section">
@@ -3563,7 +3603,13 @@ cancelUnlock.addEventListener(
 
       const keyword = searchInput.value.trim().toLowerCase();
 
-      // 動画名またはIDで検索
+      
+      // 第20回：お気に入り絞り込み状態を取得
+      const favoriteOnly = document.getElementById(
+        "favoriteOnlyFilter"
+      ).checked;
+
+      // 検索条件とお気に入り条件を組み合わせる
       const videos = allVideos.filter((video) => {
 
         const videoName = (
@@ -3572,15 +3618,26 @@ cancelUnlock.addEventListener(
 
         const videoId = String(video.id);
 
-        return videoName.includes(keyword) ||
-               videoId.includes(keyword);
+        // 動画名またはIDが検索条件に一致するか
+        const matchesSearch =
+          videoName.includes(keyword) ||
+          videoId.includes(keyword);
+
+        // お気に入りのみ表示する場合の判定
+        const matchesFavorite =
+          !favoriteOnly || Boolean(video.favorite);
+
+        return matchesSearch && matchesFavorite;
       });
 
       list.replaceChildren();
 
+    
       if (videos.length === 0) {
+
         list.textContent =
-          "保存されたモデル動画はありません。";
+          "条件に一致するモデル動画はありません。";
+
         return;
       }
 
@@ -3794,6 +3851,15 @@ document.getElementById(
   "modelVideoSearch"
 ).addEventListener("input", () => {
   displaySavedModelVideos();
+});
+// 第20回：お気に入り表示切り替え
+document.getElementById(
+  "favoriteOnlyFilter"
+).addEventListener("change", () => {
+
+  // チェック状態が変わるたびに一覧更新
+  displaySavedModelVideos();
+
 });
 
 // 第18回：動画ファイル選択時の処理
