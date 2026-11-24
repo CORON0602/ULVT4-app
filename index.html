@@ -1025,6 +1025,33 @@ body {
   margin-top: 12px;
   overflow-wrap: anywhere;
 }
+
+/* 第19回：お気に入りボタン */
+
+.saved-model-item .favorite-model-button {
+  background: #f1f3f5;
+  color: #594600;
+  border: 1px solid #d4a017;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+  min-height: 44px;
+  min-width: 110px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.saved-model-item .favorite-model-button.is-favorite {
+  background: #f5d76e;
+  color: #493800;
+  border-color: #c49b18;
+}
+
+.saved-model-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -2909,6 +2936,67 @@ cancelUnlock.addEventListener(
       db.close();
     }
   }
+  // 第19回：モデル動画のお気に入り登録
+  async function toggleModelFavorite(id) {
+
+    const db = await openModelDB();
+
+    try {
+      await new Promise((resolve, reject) => {
+
+        const transaction = db.transaction(
+          MODEL_STORE_NAME,
+          "readwrite"
+        );
+
+        const store = transaction.objectStore(
+          MODEL_STORE_NAME
+        );
+
+        // 保存済み動画を取得
+        const request = store.get(id);
+
+        request.onsuccess = () => {
+
+          const video = request.result;
+
+          if (!video) {
+            transaction.abort();
+            return;
+          }
+
+          // お気に入りのON/OFFを切り替える
+          video.favorite = !video.favorite;
+
+          // 変更した動画情報を保存
+          store.put(video);
+        };
+
+        transaction.oncomplete = () => resolve();
+
+        transaction.onerror = () => {
+          reject(transaction.error);
+        };
+
+        transaction.onabort = () => {
+          reject(
+            transaction.error ||
+            new Error("お気に入りの更新に失敗しました")
+          );
+        };
+      });
+
+      // 保存後、一覧を再表示
+      await displaySavedModelVideos();
+
+    } catch (error) {
+      console.error("お気に入り登録エラー:", error);
+      alert("お気に入りを変更できませんでした。");
+
+    } finally {
+      db.close();
+    }
+  }
   // 第18回：動画ファイルをIndexedDBに保存
   async function importModelVideo(file) {
 
@@ -3497,7 +3585,21 @@ cancelUnlock.addEventListener(
       }
 
       // 新しい動画から順番に表示
-      videos.sort((a, b) => b.id - a.id);
+      
+
+videos.sort((a, b) => {
+  // お気に入りを優先する
+  const favoriteDifference =
+    Number(Boolean(b.favorite)) -
+    Number(Boolean(a.favorite));
+
+  if (favoriteDifference !== 0) {
+    return favoriteDifference;
+  }
+
+  // 同じ区分では新しい動画を優先する
+  return b.id - a.id;
+});
 
       videos.forEach((video) => {
         const item = document.createElement("div");
@@ -3590,10 +3692,32 @@ cancelUnlock.addEventListener(
           exportSavedModelVideo(video);
         });
 
-        // ボタンの配置
+        
+        // 第19回：お気に入りボタン
+        const favoriteButton = document.createElement("button");
+
+        favoriteButton.type = "button";
+
+        favoriteButton.textContent = video.favorite
+          ? "★解除"
+          : "☆お気に入り";
+
+        favoriteButton.className =
+          "favorite-model-button";
+
+        if (video.favorite) {
+          favoriteButton.classList.add("is-favorite");
+        }
+
+        favoriteButton.addEventListener("click", () => {
+          toggleModelFavorite(video.id);
+        });
+
+        // 5つの操作ボタンを配置
         buttonArea.append(
           loadButton,
           renameButton,
+          favoriteButton,
           exportButton,
           deleteButton
         );
