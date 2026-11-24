@@ -917,6 +917,67 @@ body {
     align-items: flex-start;
   }
 }
+
+
+/* 第17回：保存容量の管理 */
+
+.model-storage-section {
+  background: #eef5f3;
+  color: #243b38;
+  padding: 16px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.model-storage-section h3 {
+  color: #243b38;
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+
+.model-storage-info p {
+  color: #243b38;
+  font-size: 15px;
+  margin: 8px 0;
+}
+
+.model-storage-bar {
+  width: 100%;
+  height: 12px;
+  background: #d4e4df;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 15px;
+}
+
+#modelStorageProgress {
+  width: 0%;
+  height: 100%;
+  background: #147d70;
+  border-radius: 8px;
+  transition: width 0.3s;
+}
+
+#modelStoragePercent {
+  color: #243b38;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.model-storage-section #refreshModelStorage {
+  background: #147d70;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  min-height: 44px;
+  font-size: 16px;
+  margin-top: 12px;
+  cursor: pointer;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1133,7 +1194,48 @@ body {
   >
 </div>
 
-  <div id="savedModelList">
+  
+<!-- 第17回：保存容量の管理 -->
+<div class="model-storage-section">
+
+  <h3>保存容量の管理</h3>
+
+  <div class="model-storage-info">
+    <p id="modelVideoCount">
+      保存モデル動画：確認中
+    </p>
+
+    <p id="modelVideoSize">
+      動画データ合計：確認中
+    </p>
+
+    <p id="modelStorageUsage">
+      アプリ全体の使用量：確認中
+    </p>
+
+    <p id="modelStorageQuota">
+      ストレージ推定上限：確認中
+    </p>
+  </div>
+
+  <div class="model-storage-bar">
+    <div id="modelStorageProgress"></div>
+  </div>
+
+  <p id="modelStoragePercent">
+    使用率：確認中
+  </p>
+
+  <button
+    type="button"
+    id="refreshModelStorage"
+  >
+    保存容量を更新
+  </button>
+
+</div>
+
+<div id="savedModelList">
     保存動画を確認しています...
   </div>
 
@@ -2742,6 +2844,178 @@ cancelUnlock.addEventListener(
       db.close();
     }
   }
+  // 第17回：バイト数を読みやすく表示する
+  function formatStorageSize(bytes) {
+
+    if (!Number.isFinite(bytes) || bytes < 0) {
+      return "取得できません";
+    }
+
+    if (bytes < 1024) {
+      return bytes + " B";
+    }
+
+    if (bytes < 1024 * 1024) {
+      return (bytes / 1024).toFixed(1) + " KB";
+    }
+
+    if (bytes < 1024 * 1024 * 1024) {
+      return (
+        bytes / (1024 * 1024)
+      ).toFixed(1) + " MB";
+    }
+
+    return (
+      bytes / (1024 * 1024 * 1024)
+    ).toFixed(2) + " GB";
+  }
+
+
+  // 第17回：保存容量を確認する
+  async function updateModelStorageInfo() {
+
+    const countElement = document.getElementById(
+      "modelVideoCount"
+    );
+
+    const sizeElement = document.getElementById(
+      "modelVideoSize"
+    );
+
+    const usageElement = document.getElementById(
+      "modelStorageUsage"
+    );
+
+    const quotaElement = document.getElementById(
+      "modelStorageQuota"
+    );
+
+    const percentElement = document.getElementById(
+      "modelStoragePercent"
+    );
+
+    const progressElement = document.getElementById(
+      "modelStorageProgress"
+    );
+
+    try {
+
+      // IndexedDBから保存動画を取得
+      const videos = await getSavedModelVideos();
+
+      let totalVideoSize = 0;
+
+      videos.forEach((video) => {
+
+        if (video.blob instanceof Blob) {
+          totalVideoSize += video.blob.size;
+        }
+
+      });
+
+      // 保存動画の本数
+      countElement.textContent =
+        "保存モデル動画：" + videos.length + "本";
+
+      // 動画データそのものの合計
+      sizeElement.textContent =
+        "動画データ合計：" +
+        formatStorageSize(totalVideoSize);
+
+      // ブラウザ全体の保存領域を確認
+      if (
+        navigator.storage &&
+        typeof navigator.storage.estimate === "function"
+      ) {
+
+        try {
+          const estimate =
+            await navigator.storage.estimate();
+
+          const usage = estimate.usage;
+          const quota = estimate.quota;
+
+          usageElement.textContent =
+            Number.isFinite(usage)
+              ? "アプリ全体の推定使用量：" +
+                formatStorageSize(usage)
+              : "アプリ全体の推定使用量：取得できません";
+
+          quotaElement.textContent =
+            Number.isFinite(quota)
+              ? "ストレージ推定上限：" +
+                formatStorageSize(quota)
+              : "ストレージ推定上限：取得できません";
+
+          if (
+            Number.isFinite(usage) &&
+            Number.isFinite(quota) &&
+            quota > 0
+          ) {
+
+            const percent = Math.min(
+              100,
+              Math.max(0, (usage / quota) * 100)
+            );
+
+            percentElement.textContent =
+              "使用率（推定）：" +
+              percent.toFixed(1) + "%";
+
+            progressElement.style.width =
+              percent + "%";
+
+          } else {
+            percentElement.textContent =
+              "使用率：取得できません";
+
+            progressElement.style.width = "0%";
+          }
+
+        } catch (error) {
+
+          console.warn(
+            "ストレージ推定値の取得エラー:",
+            error
+          );
+
+          usageElement.textContent =
+            "アプリ全体の推定使用量：取得できません";
+
+          quotaElement.textContent =
+            "ストレージ推定上限：取得できません";
+
+          percentElement.textContent =
+            "使用率：取得できません";
+
+          progressElement.style.width = "0%";
+        }
+
+      } else {
+
+        usageElement.textContent =
+          "アプリ全体の推定使用量：非対応";
+
+        quotaElement.textContent =
+          "ストレージ推定上限：非対応";
+
+        percentElement.textContent =
+          "使用率：取得できません";
+
+        progressElement.style.width = "0%";
+      }
+
+    } catch (error) {
+
+      console.error(
+        "保存容量の取得エラー:",
+        error
+      );
+
+      countElement.textContent =
+        "保存動画の情報を取得できませんでした";
+    }
+  }
   // 第16回：動画からサムネイル画像を生成
   function createVideoThumbnail(blob) {
 
@@ -3183,6 +3457,17 @@ cancelUnlock.addEventListener(
     "refreshModelList"
   ).addEventListener("click", displaySavedModelVideos);
 
+
+// 第17回：保存容量更新ボタン
+document.getElementById(
+  "refreshModelStorage"
+).addEventListener(
+  "click",
+  updateModelStorageInfo
+);
+
+// アプリ起動時に保存容量を表示
+updateModelStorageInfo();
   // 画面を開いたときに一覧表示
   displaySavedModelVideos();
 // 第15回：検索欄への入力で動画一覧を更新
