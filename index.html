@@ -1083,6 +1083,45 @@ body {
   accent-color: #b58a12;
   cursor: pointer;
 }
+
+/* 第21回：モデル動画の並び替え */
+
+.model-sort-area {
+  margin-top: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: #eef5f3;
+  border: 1px solid #b7d4cb;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.model-sort-area label {
+  display: block;
+  color: #243b38;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+#modelVideoSort {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #243b38;
+  border: 2px solid #b7d4cb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#modelVideoSort:focus {
+  outline: 2px solid #147d70;
+  outline-offset: 2px;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1307,6 +1346,39 @@ body {
     >
     ★ お気に入りのみ表示
   </label>
+</div>
+
+<!-- 第21回：モデル動画の並び替え -->
+<div class="model-sort-area">
+
+  <label for="modelVideoSort">
+    動画の並び順
+  </label>
+
+  <select id="modelVideoSort">
+
+    <option value="favorite">
+      ★ お気に入り優先
+    </option>
+
+    <option value="new">
+      保存日時：新しい順
+    </option>
+
+    <option value="old">
+      保存日時：古い順
+    </option>
+
+    <option value="name">
+      動画名：昇順
+    </option>
+
+    <option value="nameDesc">
+      動画名：降順
+    </option>
+
+  </select>
+
 </div>
   
 <!-- 第17回：保存容量の管理 -->
@@ -3644,19 +3716,68 @@ cancelUnlock.addEventListener(
       // 新しい動画から順番に表示
       
 
-videos.sort((a, b) => {
-  // お気に入りを優先する
-  const favoriteDifference =
-    Number(Boolean(b.favorite)) -
-    Number(Boolean(a.favorite));
 
-  if (favoriteDifference !== 0) {
-    return favoriteDifference;
-  }
+      // 第21回：選択された並び順を取得
+      const sortType = document.getElementById(
+        "modelVideoSort"
+      ).value;
 
-  // 同じ区分では新しい動画を優先する
-  return b.id - a.id;
-});
+      // 動画名を取得する
+      function getVideoName(video) {
+        return video.name || "モデル動画 ID：" + video.id;
+      }
+
+      // 保存日時を比較できる数値に変換する
+      function getVideoDate(video) {
+        const time = Date.parse(video.createdAt || "");
+        return Number.isFinite(time) ? time : 0;
+      }
+
+      // 保存動画を並び替える
+      videos.sort((a, b) => {
+
+        // 保存日時：新しい順
+        if (sortType === "new") {
+          return getVideoDate(b) - getVideoDate(a)
+            || b.id - a.id;
+        }
+
+        // 保存日時：古い順
+        if (sortType === "old") {
+          return getVideoDate(a) - getVideoDate(b)
+            || a.id - b.id;
+        }
+
+        // 動画名：昇順
+        if (sortType === "name") {
+          return getVideoName(a).localeCompare(
+            getVideoName(b),
+            "ja"
+          ) || b.id - a.id;
+        }
+
+        // 動画名：降順
+        if (sortType === "nameDesc") {
+          return getVideoName(b).localeCompare(
+            getVideoName(a),
+            "ja"
+          ) || b.id - a.id;
+        }
+
+        // お気に入り優先（初期設定）
+        const favoriteDifference =
+          Number(Boolean(b.favorite)) -
+          Number(Boolean(a.favorite));
+
+        if (favoriteDifference !== 0) {
+          return favoriteDifference;
+        }
+
+        // 同じお気に入り状態なら新しい順
+        return getVideoDate(b) - getVideoDate(a)
+          || b.id - a.id;
+
+      });
 
       videos.forEach((video) => {
         const item = document.createElement("div");
@@ -3858,6 +3979,17 @@ document.getElementById(
 ).addEventListener("change", () => {
 
   // チェック状態が変わるたびに一覧更新
+  displaySavedModelVideos();
+
+});
+
+
+// 第21回：並び順の変更
+document.getElementById(
+  "modelVideoSort"
+).addEventListener("change", () => {
+
+  // 並び順を変更したら動画一覧を更新
   displaySavedModelVideos();
 
 });
