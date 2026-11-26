@@ -1340,6 +1340,115 @@ body.ulvt-pseudo-active {
     right: calc(12px + env(safe-area-inset-right)) !important;
   }
 }
+
+
+/* =====================================
+   第25回：カメラ拡大率調整
+   ===================================== */
+
+/* 映像の初期倍率 */
+:root {
+  --ulvt-view-zoom: 1;
+}
+
+/* 既存のtransformを壊さずに拡大 */
+#cameraVideo,
+#liveOverlayVideo,
+#modelOverlayVideo {
+  scale: var(--ulvt-view-zoom);
+  transform-origin: center center;
+}
+
+/* 拡大映像のはみ出しを隠す */
+.camera.ulvt-live-camera,
+.overlay-container {
+  overflow: hidden;
+}
+
+/* 倍率操作パネル */
+.ulvt-zoom-controls {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  margin: 10px 0 16px;
+  background: #eef5f3;
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+.ulvt-zoom-title {
+  display: block;
+  color: #243b38;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.ulvt-zoom-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ulvt-zoom-buttons .ulvt-zoom-button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 3px;
+  border: 2px solid #b7d4cb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #243b38;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* 選択中の倍率 */
+.ulvt-zoom-buttons .ulvt-zoom-button.active {
+  background: #147d70;
+  color: #ffffff;
+  border-color: #147d70;
+}
+
+/* iPad横画面の配置 */
+@media screen and (min-width: 700px)
+       and (orientation: landscape) {
+
+  #patientZoomControls {
+    grid-column: 1;
+    min-width: 0;
+  }
+}
+
+/* 疑似全画面中は下側に倍率操作を配置 */
+body.ulvt-pseudo-active
+#cameraZoomControls,
+body.ulvt-pseudo-active
+#patientZoomControls {
+  position: fixed !important;
+  left: 50% !important;
+  bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+  transform: translateX(-50%) !important;
+  width: min(560px, calc(100vw - 24px)) !important;
+  max-width: none !important;
+  margin: 0 !important;
+  z-index: 10000 !important;
+  background: rgba(238, 245, 243, 0.96);
+}
+
+/* 疑似全画面中、非表示画面の操作欄は隠す */
+body.ulvt-pseudo-active:has(
+  #patientVideoArea.ulvt-pseudo-full
+) #cameraZoomControls {
+  display: none !important;
+}
+
+body.ulvt-pseudo-active:has(
+  .ulvt-live-camera.ulvt-pseudo-full
+) #patientZoomControls {
+  display: none !important;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1431,6 +1540,29 @@ body.ulvt-pseudo-active {
   aria-pressed="false">
   カメラを大きく表示
 </button>
+<!-- 第25回：通常カメラの拡大率調整 -->
+<div id="cameraZoomControls" class="ulvt-zoom-controls">
+
+  <span class="ulvt-zoom-title">
+    カメラ拡大率
+  </span>
+
+  <div class="ulvt-zoom-buttons">
+    <button type="button" class="ulvt-zoom-button"
+      data-zoom="1">1.0倍</button>
+
+    <button type="button" class="ulvt-zoom-button"
+      data-zoom="1.25">1.25倍</button>
+
+    <button type="button" class="ulvt-zoom-button"
+      data-zoom="1.5">1.5倍</button>
+
+    <button type="button" class="ulvt-zoom-button"
+      data-zoom="2">2.0倍</button>
+  </div>
+
+</div>
+
 
 
     <div class="records">
@@ -1850,6 +1982,29 @@ body.ulvt-pseudo-active {
   class="fullscreen-button">
   画面を大きく表示
 </button>
+<!-- 第25回：自主練習モードの拡大率調整 -->
+<div id="patientZoomControls" class="ulvt-zoom-controls">
+
+  <span class="ulvt-zoom-title">
+    映像の拡大率
+  </span>
+
+  <div class="ulvt-zoom-buttons">
+    <button type="button" class="ulvt-zoom-button"
+      data-zoom="1">1.0倍</button>
+
+    <button type="button" class="ulvt-zoom-button"
+      data-zoom="1.25">1.25倍</button>
+
+    <button type="button" class="ulvt-zoom-button"
+      data-zoom="1.5">1.5倍</button>
+
+    <button type="button" class="ulvt-zoom-button"
+      data-zoom="2">2.0倍</button>
+  </div>
+
+</div>
+
   
 <!-- 患者さん用の操作エリア -->
 <div id="patientControlArea">
@@ -4571,6 +4726,67 @@ document.getElementById(
     input.value = "";
   }
 });
+</script>
+
+<script>
+  // 第25回：カメラ映像の拡大率調整
+
+  const ULVT_ZOOM_LEVELS = [1, 1.25, 1.5, 2];
+
+  let ulvtCurrentZoom = 1;
+
+  // すべての倍率ボタンを取得
+  const ulvtZoomButtons = document.querySelectorAll(
+    ".ulvt-zoom-button"
+  );
+
+  // カメラ映像の倍率を変更する
+  function setULVTZoom(value) {
+
+    const zoom = Number(value);
+
+    // 許可された倍率だけ使用
+    if (!ULVT_ZOOM_LEVELS.includes(zoom)) {
+      return;
+    }
+
+    ulvtCurrentZoom = zoom;
+
+    // カメラ・重ね合わせ映像に反映
+    document.documentElement.style.setProperty(
+      "--ulvt-view-zoom",
+      String(zoom)
+    );
+
+    // 選択中のボタンを更新
+    ulvtZoomButtons.forEach((button) => {
+
+      const selected =
+        Number(button.dataset.zoom) === zoom;
+
+      button.classList.toggle("active", selected);
+
+      button.setAttribute(
+        "aria-pressed",
+        selected ? "true" : "false"
+      );
+
+    });
+  }
+
+  // 各ボタンにクリック処理を設定
+  ulvtZoomButtons.forEach((button) => {
+
+    button.addEventListener("click", () => {
+
+      setULVTZoom(button.dataset.zoom);
+
+    });
+
+  });
+
+  // 初期倍率は1.0倍
+  setULVTZoom(1);
 </script>
 </body>
 </html>
