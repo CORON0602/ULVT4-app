@@ -1233,6 +1233,113 @@ body {
     min-width: 0;
   }
 }
+
+/* =====================================
+   第24回：疑似全画面表示
+   ===================================== */
+
+/* 通常表示用のボタン */
+.ulvt-pseudo-button {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  margin: 8px 0 16px;
+  padding: 12px;
+  background: #147d70;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* 疑似全画面中はページのスクロールを停止 */
+html.ulvt-pseudo-active,
+body.ulvt-pseudo-active {
+  overflow: hidden !important;
+}
+
+/* 通常カメラと自主練習映像を画面全体に配置 */
+.camera.ulvt-live-camera.ulvt-pseudo-full,
+#patientVideoArea.ulvt-pseudo-full {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 8px !important;
+  background: #101b1b !important;
+  border-radius: 0 !important;
+  z-index: 9998 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* 通常のカメラ映像 */
+.camera.ulvt-live-camera.ulvt-pseudo-full
+#cameraVideo {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* 自主練習用の重ね合わせ映像 */
+#patientVideoArea.ulvt-pseudo-full
+.overlay-container {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  aspect-ratio: auto !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* 2つの重ね合わせ映像は同じ範囲に表示 */
+#patientVideoArea.ulvt-pseudo-full
+.overlay-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 全画面解除ボタン */
+#cameraPseudoFullscreen.ulvt-exit-button,
+#patientFullscreen.ulvt-exit-button {
+  position: fixed !important;
+  top: 12px !important;
+  right: 12px !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  min-width: 170px;
+  max-width: calc(100vw - 24px);
+  min-height: 50px;
+  margin: 0 !important;
+  padding: 10px 16px !important;
+  background: #147d70 !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+  border-radius: 10px !important;
+  font-size: 16px !important;
+  z-index: 9999 !important;
+  cursor: pointer;
+}
+
+/* iPadのセーフエリアへの配慮 */
+@supports (top: env(safe-area-inset-top)) {
+  #cameraPseudoFullscreen.ulvt-exit-button,
+  #patientFullscreen.ulvt-exit-button {
+    top: calc(12px + env(safe-area-inset-top)) !important;
+    right: calc(12px + env(safe-area-inset-right)) !important;
+  }
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1315,6 +1422,16 @@ body {
     muted>
   </video>
 </div>
+
+<!-- 第24回：カメラ疑似全画面ボタン -->
+<button
+  id="cameraPseudoFullscreen"
+  type="button"
+  class="ulvt-pseudo-button"
+  aria-pressed="false">
+  カメラを大きく表示
+</button>
+
 
     <div class="records">
 
@@ -3022,55 +3139,180 @@ cancelUnlock.addEventListener(
   }
 );
 </script>
+
 <script>
-  const patientFullscreen =
+  // 第24回：疑似全画面表示・解除
+
+  const cameraPseudoButton =
+    document.getElementById("cameraPseudoFullscreen");
+
+  const patientPseudoButton =
     document.getElementById("patientFullscreen");
 
-  patientFullscreen.addEventListener("click", async () => {
+  const liveCameraArea =
+    document.querySelector(".camera.ulvt-live-camera");
 
-    // ブラウザが全画面表示に対応しているか確認
-    if (!patientScreen.requestFullscreen) {
+  const patientPseudoArea =
+    document.getElementById("patientVideoArea");
 
-      patientStatus.textContent =
-        "この端末では全画面表示に対応していません。";
+  let pseudoFullscreenMode = null;
 
+  // 元のスクロール位置を保持
+  let pseudoScrollY = 0;
+
+  function exitULVTPseudoFullscreen() {
+
+    if (!pseudoFullscreenMode) {
       return;
     }
 
-    try {
+    liveCameraArea.classList.remove(
+      "ulvt-pseudo-full"
+    );
 
-      if (document.fullscreenElement) {
+    patientPseudoArea.classList.remove(
+      "ulvt-pseudo-full"
+    );
 
-        await document.exitFullscreen();
+    cameraPseudoButton.classList.remove(
+      "ulvt-exit-button"
+    );
 
+    patientPseudoButton.classList.remove(
+      "ulvt-exit-button"
+    );
+
+    document.documentElement.classList.remove(
+      "ulvt-pseudo-active"
+    );
+
+    document.body.classList.remove(
+      "ulvt-pseudo-active"
+    );
+
+    cameraPseudoButton.textContent =
+      "カメラを大きく表示";
+
+    patientPseudoButton.textContent =
+      "画面を大きく表示";
+
+    cameraPseudoButton.setAttribute(
+      "aria-pressed", "false"
+    );
+
+    patientPseudoButton.setAttribute(
+      "aria-pressed", "false"
+    );
+
+    pseudoFullscreenMode = null;
+
+    window.scrollTo(0, pseudoScrollY);
+  }
+
+  function enterULVTPseudoFullscreen(mode) {
+
+    // 別の拡大表示が残っていれば解除
+    if (pseudoFullscreenMode) {
+      exitULVTPseudoFullscreen();
+    }
+
+    pseudoScrollY = window.scrollY;
+
+    pseudoFullscreenMode = mode;
+
+    document.documentElement.classList.add(
+      "ulvt-pseudo-active"
+    );
+
+    document.body.classList.add(
+      "ulvt-pseudo-active"
+    );
+
+    if (mode === "camera") {
+
+      liveCameraArea.classList.add(
+        "ulvt-pseudo-full"
+      );
+
+      cameraPseudoButton.classList.add(
+        "ulvt-exit-button"
+      );
+
+      cameraPseudoButton.textContent =
+        "通常表示に戻す";
+
+      cameraPseudoButton.setAttribute(
+        "aria-pressed", "true"
+      );
+
+    } else if (mode === "patient") {
+
+      patientPseudoArea.classList.add(
+        "ulvt-pseudo-full"
+      );
+
+      patientPseudoButton.classList.add(
+        "ulvt-exit-button"
+      );
+
+      patientPseudoButton.textContent =
+        "通常表示に戻す";
+
+      patientPseudoButton.setAttribute(
+        "aria-pressed", "true"
+      );
+    }
+  }
+
+  // 通常カメラの拡大・解除
+  cameraPseudoButton.addEventListener(
+    "click", () => {
+
+      if (pseudoFullscreenMode === "camera") {
+        exitULVTPseudoFullscreen();
       } else {
-
-        await patientScreen.requestFullscreen();
-
+        enterULVTPseudoFullscreen("camera");
       }
 
-    } catch (error) {
+    }
+  );
 
-      console.error(error);
+  // 自主練習モードの拡大・解除
+  patientPseudoButton.addEventListener(
+    "click", () => {
 
-      patientStatus.textContent =
-        "全画面表示に切り替えられませんでした。";
+      if (pseudoFullscreenMode === "patient") {
+        exitULVTPseudoFullscreen();
+      } else {
+        enterULVTPseudoFullscreen("patient");
+      }
 
     }
+  );
 
+  // キーボードのEscでも解除できる
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key === "Escape" &&
+      pseudoFullscreenMode
+    ) {
+      exitULVTPseudoFullscreen();
+    }
   });
 
-  // 全画面表示の状態に合わせてボタン名を変更
-  document.addEventListener(
-    "fullscreenchange",
-    () => {
+  // モード切り替え時には拡大表示を解除
+  document.getElementById(
+    "therapistMode"
+  ).addEventListener(
+    "click",
+    exitULVTPseudoFullscreen
+  );
 
-      patientFullscreen.textContent =
-        document.fullscreenElement
-          ? "通常表示に戻す"
-          : "画面を大きく表示";
-
-    }
+  document.getElementById(
+    "patientMode"
+  ).addEventListener(
+    "click",
+    exitULVTPseudoFullscreen
   );
 </script>
 
