@@ -1122,6 +1122,60 @@ body {
   outline: 2px solid #147d70;
   outline-offset: 2px;
 }
+
+
+/* 第22回：モデル動画のカテゴリ分類 */
+
+.model-category-filter {
+  margin-top: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: #eef5f3;
+  border: 1px solid #b7d4cb;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.model-category-filter label {
+  display: block;
+  color: #243b38;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+#modelCategoryFilter {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  background: #ffffff;
+  color: #243b38;
+  border: 2px solid #b7d4cb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  font-size: 16px;
+}
+
+.saved-model-category-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #243b38;
+  font-size: 14px;
+}
+
+.saved-model-category-select {
+  min-height: 44px;
+  max-width: 100%;
+  background: #ffffff;
+  color: #243b38;
+  border: 1px solid #b7d4cb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 16px;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1376,6 +1430,27 @@ body {
     <option value="nameDesc">
       動画名：降順
     </option>
+
+  </select>
+
+</div>
+
+<!-- 第22回：カテゴリ絞り込み -->
+<div class="model-category-filter">
+
+  <label for="modelCategoryFilter">
+    動画のカテゴリ
+  </label>
+
+  <select id="modelCategoryFilter">
+
+    <option value="all">すべてのカテゴリ</option>
+    <option value="肩関節運動">肩関節運動</option>
+    <option value="肘・前腕運動">肘・前腕運動</option>
+    <option value="手指運動">手指運動</option>
+    <option value="リーチ動作">リーチ動作</option>
+    <option value="その他">その他</option>
+    <option value="未分類">未分類</option>
 
   </select>
 
@@ -3048,6 +3123,95 @@ cancelUnlock.addEventListener(
       db.close();
     }
   }
+  
+// 第22回：使用するカテゴリ
+const MODEL_CATEGORIES = [
+  "未分類",
+  "肩関節運動",
+  "肘・前腕運動",
+  "手指運動",
+  "リーチ動作",
+  "その他"
+];
+
+// 第22回：モデル動画のカテゴリを変更する
+async function updateModelVideoCategory(id, category) {
+
+  if (!MODEL_CATEGORIES.includes(category)) {
+    alert("選択したカテゴリが正しくありません。");
+    return;
+  }
+
+  const db = await openModelDB();
+
+  try {
+
+    await new Promise((resolve, reject) => {
+
+      const transaction = db.transaction(
+        MODEL_STORE_NAME,
+        "readwrite"
+      );
+
+      const store = transaction.objectStore(
+        MODEL_STORE_NAME
+      );
+
+      const request = store.get(id);
+
+      request.onsuccess = () => {
+
+        const video = request.result;
+
+        if (!video) {
+          transaction.abort();
+          return;
+        }
+
+        // 動画データは残し、カテゴリだけ変更
+        video.category = category;
+
+        store.put(video);
+      };
+
+      transaction.oncomplete = () => resolve();
+
+      transaction.onerror = () => {
+        reject(transaction.error);
+      };
+
+      transaction.onabort = () => {
+        reject(
+          transaction.error ||
+          new Error("カテゴリの更新に失敗しました")
+        );
+      };
+
+    });
+
+    document.getElementById(
+      "modelLoadStatus"
+    ).textContent =
+      "モデル動画 ID：" + id +
+      " のカテゴリを「" + category +
+      "」に変更しました。";
+
+    // 一覧を更新
+    await displaySavedModelVideos();
+
+  } catch (error) {
+
+    console.error("カテゴリ変更エラー:", error);
+
+    alert("カテゴリを変更できませんでした。");
+
+    await displaySavedModelVideos();
+
+  } finally {
+
+    db.close();
+  }
+}
   // 第19回：モデル動画のお気に入り登録
   async function toggleModelFavorite(id) {
 
@@ -3696,10 +3860,28 @@ cancelUnlock.addEventListener(
           videoId.includes(keyword);
 
         // お気に入りのみ表示する場合の判定
+        
         const matchesFavorite =
           !favoriteOnly || Boolean(video.favorite);
 
-        return matchesSearch && matchesFavorite;
+        // 第22回：選択されているカテゴリを取得
+        const selectedCategory = document.getElementById(
+          "modelCategoryFilter"
+        ).value;
+
+        const videoCategory =
+          MODEL_CATEGORIES.includes(video.category)
+            ? video.category
+            : "未分類";
+
+        const matchesCategory =
+          selectedCategory === "all" ||
+          videoCategory === selectedCategory;
+
+        // すべての条件に一致した動画だけ表示
+        return matchesSearch &&
+               matchesFavorite &&
+               matchesCategory;
       });
 
       list.replaceChildren();
@@ -3819,7 +4001,50 @@ cancelUnlock.addEventListener(
         date.textContent = "保存日時：" +
           new Date(video.createdAt).toLocaleString("ja-JP");
 
-        info.append(name, date);
+        
+        // 第22回：動画のカテゴリ選択欄
+        const categoryRow = document.createElement("label");
+
+        categoryRow.className = "saved-model-category-row";
+        categoryRow.textContent = "カテゴリ：";
+
+        const categorySelect = document.createElement("select");
+
+        categorySelect.className = "saved-model-category-select";
+
+        // 未設定の動画は「未分類」とする
+        const currentCategory =
+          MODEL_CATEGORIES.includes(video.category)
+            ? video.category
+            : "未分類";
+
+        MODEL_CATEGORIES.forEach((category) => {
+
+          const option = document.createElement("option");
+
+          option.value = category;
+          option.textContent = category;
+
+          categorySelect.appendChild(option);
+
+        });
+
+        categorySelect.value = currentCategory;
+
+        // カテゴリが変更されたらIndexedDBに保存
+        categorySelect.addEventListener("change", () => {
+
+          updateModelVideoCategory(
+            video.id,
+            categorySelect.value
+          );
+
+        });
+
+        categoryRow.appendChild(categorySelect);
+
+        // 動画名・保存日時・カテゴリを表示
+        info.append(name, date, categoryRow);
 
         const loadButton = document.createElement("button");
         loadButton.type = "button";
@@ -3983,6 +4208,15 @@ document.getElementById(
 
 });
 
+// 第22回：カテゴリ絞り込み
+document.getElementById(
+  "modelCategoryFilter"
+).addEventListener("change", () => {
+
+  // 選択したカテゴリで動画一覧を更新
+  displaySavedModelVideos();
+
+});
 
 // 第21回：並び順の変更
 document.getElementById(
