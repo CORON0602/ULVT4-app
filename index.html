@@ -1176,6 +1176,63 @@ body {
   padding: 8px 10px;
   font-size: 16px;
 }
+
+/* =================================
+   第23回：カメラ表示領域の拡大
+   ================================= */
+
+/* 通常のライブカメラ表示 */
+.camera.ulvt-live-camera {
+  width: 100%;
+  height: clamp(320px, 48vw, 540px);
+  min-width: 0;
+  background: #233b3b;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+/* ライブカメラ映像 */
+#cameraVideo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 横向き画面でアプリ領域を広く使う */
+@media screen and (min-width: 700px)
+       and (orientation: landscape) {
+
+  .app {
+    width: 100%;
+    max-width: 1400px;
+    padding: 16px;
+  }
+
+  /* 自主練習モード：
+     左側の映像領域を広くする */
+  #patientScreen:not([hidden]) {
+    grid-template-columns:
+      minmax(0, 1.8fr) minmax(0, 1fr);
+  }
+
+  #patientVideoArea {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* 重ね合わせ映像の表示比率を維持 */
+  #patientVideoArea .overlay-container {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 4 / 3;
+  }
+
+  /* 操作部も画面からはみ出さないようにする */
+  #patientControlArea {
+    min-width: 0;
+  }
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1250,7 +1307,7 @@ body {
       <option>前方リーチ</option>
     </select>
 
-<div class="camera">
+<div class="camera ulvt-live-camera">
   <video
     id="cameraVideo"
     autoplay
