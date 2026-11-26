@@ -1449,6 +1449,127 @@ body.ulvt-pseudo-active:has(
 ) #patientZoomControls {
   display: none !important;
 }
+
+/* =====================================
+   第26回：疑似全画面の操作性改善
+   ===================================== */
+
+/* 通常表示では隠す */
+.ulvt-fullscreen-hud[hidden],
+.ulvt-fullscreen-actions[hidden] {
+  display: none !important;
+}
+
+/* 左上：練習時間・運動回数 */
+.ulvt-fullscreen-hud {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  z-index: 10001;
+
+  display: flex;
+  gap: 8px;
+
+  max-width: calc(100vw - 210px);
+  pointer-events: none;
+}
+
+.ulvt-hud-record {
+  background: rgba(15, 35, 33, 0.88);
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+
+  padding: 8px 12px;
+  text-align: center;
+  min-width: 78px;
+}
+
+.ulvt-hud-record span {
+  display: block;
+  font-size: 12px;
+  color: #d8eeea;
+}
+
+.ulvt-hud-record strong {
+  display: block;
+  margin-top: 3px;
+  font-size: clamp(17px, 2.5vw, 24px);
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 下側：訓練操作パネル */
+.ulvt-fullscreen-actions {
+  position: fixed;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+
+  z-index: 10001;
+  width: min(560px, calc(100vw - 24px));
+
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+
+  padding: 8px;
+  background: rgba(230, 241, 239, 0.96);
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+.ulvt-fullscreen-actions button {
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 4px;
+  font-size: clamp(13px, 2vw, 17px);
+  font-weight: bold;
+  border-radius: 8px;
+  background: #147d70;
+  color: white;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#ulvtHudEnd {
+  background: #b83b32;
+}
+
+.ulvt-fullscreen-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 第25回の倍率ボタンと重ならないよう上へ移動 */
+body.ulvt-pseudo-active:has(
+  #patientVideoArea.ulvt-pseudo-full
+) #patientZoomControls {
+  bottom: calc(
+    90px + env(safe-area-inset-bottom)
+  ) !important;
+}
+
+/* 縦向きなど狭い画面への対応 */
+@media (max-width: 600px) {
+  .ulvt-fullscreen-hud {
+    gap: 4px;
+    max-width: calc(100vw - 150px);
+  }
+
+  .ulvt-hud-record {
+    min-width: 0;
+    padding: 6px;
+  }
+
+  .ulvt-hud-record span {
+    font-size: 10px;
+  }
+
+  .ulvt-hud-record strong {
+    font-size: 16px;
+  }
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -4787,6 +4908,179 @@ document.getElementById(
 
   // 初期倍率は1.0倍
   setULVTZoom(1);
+</script>
+
+<!-- 第26回：疑似全画面中の訓練情報 -->
+<div id="ulvtFullscreenHud"
+     class="ulvt-fullscreen-hud"
+     hidden>
+
+  <div class="ulvt-hud-record">
+    <span>練習時間</span>
+    <strong id="ulvtHudTimer">00:00</strong>
+  </div>
+
+  <div class="ulvt-hud-record">
+    <span>運動回数</span>
+    <strong id="ulvtHudCount">0回</strong>
+  </div>
+
+</div>
+
+<!-- 第26回：疑似全画面中の訓練操作 -->
+<div id="ulvtFullscreenActions"
+     class="ulvt-fullscreen-actions"
+     hidden>
+
+  <button type="button"
+          id="ulvtHudStart">
+    練習開始
+  </button>
+
+  <button type="button"
+          id="ulvtHudAddCount">
+    ＋1回
+  </button>
+
+  <button type="button"
+          id="ulvtHudEnd">
+    練習終了
+  </button>
+
+</div>
+
+<script>
+  // 第26回：疑似全画面中の訓練操作
+
+  const ulvtHud = document.getElementById(
+    "ulvtFullscreenHud"
+  );
+
+  const ulvtHudActions = document.getElementById(
+    "ulvtFullscreenActions"
+  );
+
+  const ulvtPatientArea = document.getElementById(
+    "patientVideoArea"
+  );
+
+  // 既存の練習情報
+  const ulvtOriginalTimer = document.getElementById(
+    "patientTimer"
+  );
+
+  const ulvtOriginalCount = document.getElementById(
+    "patientCount"
+  );
+
+  // 既存の操作ボタン
+  const ulvtOriginalStart = document.getElementById(
+    "patientStart"
+  );
+
+  const ulvtOriginalAdd = document.getElementById(
+    "patientAddCount"
+  );
+
+  const ulvtOriginalEnd = document.getElementById(
+    "patientEnd"
+  );
+
+  // 全画面用の操作ボタン
+  const ulvtHudStart = document.getElementById(
+    "ulvtHudStart"
+  );
+
+  const ulvtHudAdd = document.getElementById(
+    "ulvtHudAddCount"
+  );
+
+  const ulvtHudEnd = document.getElementById(
+    "ulvtHudEnd"
+  );
+
+  // 表示状態と訓練情報を更新
+  function updateULVTFullscreenHud() {
+
+    const isPatientFullscreen =
+      ulvtPatientArea.classList.contains(
+        "ulvt-pseudo-full"
+      );
+
+    ulvtHud.hidden = !isPatientFullscreen;
+    ulvtHudActions.hidden = !isPatientFullscreen;
+
+    if (!isPatientFullscreen) {
+      return;
+    }
+
+    document.getElementById(
+      "ulvtHudTimer"
+    ).textContent = ulvtOriginalTimer.textContent;
+
+    document.getElementById(
+      "ulvtHudCount"
+    ).textContent = ulvtOriginalCount.textContent;
+
+    // 既存ボタンと有効・無効状態を同期
+    ulvtHudStart.disabled = ulvtOriginalStart.disabled;
+    ulvtHudAdd.disabled = ulvtOriginalAdd.disabled;
+    ulvtHudEnd.disabled = ulvtOriginalEnd.disabled;
+  }
+
+  // 全画面で練習開始
+  ulvtHudStart.addEventListener("click", () => {
+
+    if (ulvtOriginalStart.disabled) return;
+
+    ulvtOriginalStart.click();
+
+    updateULVTFullscreenHud();
+  });
+
+  // 全画面で運動回数を追加
+  ulvtHudAdd.addEventListener("click", () => {
+
+    if (ulvtOriginalAdd.disabled) return;
+
+    // 既存の連打防止処理も利用する
+    ulvtOriginalAdd.click();
+
+    updateULVTFullscreenHud();
+  });
+
+  // 全画面で練習終了
+  ulvtHudEnd.addEventListener("click", () => {
+
+    if (ulvtOriginalEnd.disabled) return;
+
+    const confirmed = confirm(
+      "練習を終了して記録を保存しますか？"
+    );
+
+    if (!confirmed) return;
+
+    // 既存の終了・履歴保存処理を実行
+    ulvtOriginalEnd.click();
+
+    updateULVTFullscreenHud();
+  });
+
+  // 疑似全画面の切り替えを検知
+  const ulvtFullscreenObserver = new MutationObserver(
+    updateULVTFullscreenHud
+  );
+
+  ulvtFullscreenObserver.observe(ulvtPatientArea, {
+    attributes: true,
+    attributeFilter: ["class"]
+  });
+
+  // 練習時間とボタン状態を同期
+  setInterval(updateULVTFullscreenHud, 250);
+
+  // 初期表示
+  updateULVTFullscreenHud();
 </script>
 </body>
 </html>
