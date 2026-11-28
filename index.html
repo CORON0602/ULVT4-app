@@ -174,7 +174,7 @@ button:disabled {
 /* モデル動画 */
 #modelOverlayVideo {
   z-index: 2;
-  transform: scaleX(-1);
+  transform: none;
   opacity: 0.5;
   pointer-events: none;
 }
@@ -1836,6 +1836,68 @@ body.ulvt-pseudo-active:has(
 ) #ulvtCameraSettingsSummary {
   display: none;
 }
+
+/* =====================================
+   第32回：カメラ選択・左右表示補正
+   ===================================== */
+
+.ulvt32-camera-select-area {
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #ffffff;
+  border: 1px solid #c9dcd6;
+  border-radius: 10px;
+}
+
+.ulvt32-camera-select-area > label:first-child {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #243b38;
+}
+
+#ulvt32CameraSelect {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin: 0 0 8px;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #243b38;
+}
+
+#ulvt32CameraSelect:disabled {
+  opacity: 0.55;
+}
+
+.ulvt32-note {
+  color: #52645f;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 6px 0 12px;
+}
+
+.ulvt32-correction-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: bold;
+  color: #243b38;
+}
+
+#ulvt32PreviewCorrection {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  accent-color: #147d70;
+}
+
+/* 必要なときだけ撮影プレビューを反転補正 */
+#cameraVideo.ulvt32-preview-flipped {
+  transform: scaleX(-1);
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -2037,6 +2099,38 @@ body.ulvt-pseudo-active:has(
   </summary>
 
   <div class="ulvt-camera-settings-content">
+<!-- 第32回：前面・背面カメラの選択 -->
+<div class="ulvt32-camera-select-area">
+
+  <label for="ulvt32CameraSelect">
+    使用するカメラ
+  </label>
+
+  <select id="ulvt32CameraSelect">
+    <option value="user">前面カメラ</option>
+    <option value="environment">背面カメラ</option>
+  </select>
+
+  <p class="ulvt32-note">
+    カメラを停止してから切り替えてください。
+  </p>
+
+  <label class="ulvt32-correction-label">
+    
+<input
+  type="checkbox"
+  id="ulvt32PreviewCorrection"
+  checked>
+    撮影画面の左右を補正する
+  </label>
+
+  <p class="ulvt32-note">
+    文字が鏡文字に見える場合だけONにしてください。
+    この補正はプレビュー表示専用です。
+  </p>
+
+</div>
+
 <div id="cameraZoomControls" class="ulvt-zoom-controls">
 
   <span class="ulvt-zoom-title">
@@ -2541,11 +2635,20 @@ body.ulvt-pseudo-active:has(
 
       startButton.disabled = true;
 
+      const selectedCamera =
+  document.getElementById(
+    "ulvt32CameraSelect"
+  ).value;
+
       const stream =
         await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
+         video: {
+           facingMode: {
+            ideal: selectedCamera
+           }
+         },
+         audio: false
+       });
 
       cameraStream = stream;
       video.srcObject = stream;
@@ -2611,10 +2714,11 @@ body.ulvt-pseudo-active:has(
   let mediaRecorder = null;
   let recordedChunks = [];
   let recordedUrl = null;
-  let isMirrored = true;
+  let isMirrored = false;
 
   stopRecButton.disabled = true;
-  recordedVideo.classList.add("mirrored");
+  recordedVideo.classList.remove("mirrored");
+  flipButton.textContent = "左右反転 OFF";
 
   // 撮影開始
   function startRecording() {
@@ -2747,17 +2851,22 @@ try {
   // 左右反転の切り替え
   function toggleFlip() {
 
-    isMirrored = !isMirrored;
+  isMirrored = !isMirrored;
 
-    recordedVideo.classList.toggle(
-      "mirrored",
-      isMirrored
-    );
+  // 撮影後のモデル動画の表示を変更
+  recordedVideo.classList.toggle(
+    "mirrored",
+    isMirrored
+  );
 
-    flipButton.textContent = isMirrored
-      ? "左右反転 ON"
-      : "左右反転 OFF";
-  }
+  // ボタン表示を変更
+  flipButton.textContent = isMirrored
+    ? "左右反転 ON"
+    : "左右反転 OFF";
+
+  // 重ね合わせ動画にも設定を反映
+  updateModelTransform();
+}
 
   // ボタンと機能を接続
   startRecButton.addEventListener(
@@ -5791,6 +5900,90 @@ document.getElementById(
 
   // 初期状態を確認
   ulvt30SyncSettings();
+
+</script>
+<script>
+  /* =====================================
+     第32回：カメラ選択・表示補正の管理
+     ===================================== */
+
+  const ulvt32CameraSelect =
+    document.getElementById(
+      "ulvt32CameraSelect"
+    );
+
+  const ulvt32PreviewCorrection =
+    document.getElementById(
+      "ulvt32PreviewCorrection"
+    );
+
+  const ulvt32CameraVideo =
+    document.getElementById(
+      "cameraVideo"
+    );
+
+  // 撮影プレビューの補正
+  function ulvt32UpdatePreview() {
+
+    ulvt32CameraVideo.classList.toggle(
+      "ulvt32-preview-flipped",
+      ulvt32PreviewCorrection.checked
+    );
+  }
+
+  ulvt32PreviewCorrection.addEventListener(
+    "change",
+    ulvt32UpdatePreview
+  );
+  
+/* 第32回：カメラ別の初期補正 */
+
+// 選択したカメラに応じて補正設定を変更
+function ulvt32SetDefaultCorrection() {
+
+  const isFrontCamera =
+    ulvt32CameraSelect.value === "user";
+
+  // 前面：補正ON、背面：補正OFF
+  ulvt32PreviewCorrection.checked =
+    isFrontCamera;
+
+  ulvt32UpdatePreview();
+}
+
+// カメラ選択を変更したとき
+ulvt32CameraSelect.addEventListener(
+  "change",
+  ulvt32SetDefaultCorrection
+);
+
+// ページを開いたとき
+ulvt32SetDefaultCorrection();
+
+  // カメラ起動中・録画中は切替を禁止
+  function ulvt32UpdateCameraSelect() {
+
+    const cameraActive =
+      cameraStream !== null &&
+      cameraStream.active;
+
+    const recordingActive =
+      mediaRecorder !== null &&
+      mediaRecorder.state !== "inactive";
+
+    ulvt32CameraSelect.disabled =
+      cameraActive || recordingActive;
+  }
+
+  // カメラ起動は非同期なので状態を監視
+  setInterval(
+    ulvt32UpdateCameraSelect,
+    250
+  );
+
+  // 初期状態
+  ulvt32UpdatePreview();
+  ulvt32UpdateCameraSelect();
 
 </script>
 </body>
