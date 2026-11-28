@@ -1637,6 +1637,62 @@ and (orientation: landscape) {
   }
 
 }
+
+/* =====================================
+   第28回：開始・停止ボタンの統合
+   ===================================== */
+
+/* 元の操作ボタンは削除せず非表示 */
+#therapistCaptureControls .camera-buttons {
+  display: none !important;
+}
+
+/* 新しい統合ボタン */
+#therapistCaptureControls .ulvt-capture-toggle {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+
+  margin: 0;
+  padding: 12px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: #147d70;
+  color: #ffffff;
+
+  font-size: 18px;
+  font-weight: bold;
+
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* カメラ停止時の色 */
+#ulvtCameraToggle.ulvt-toggle-stop {
+  background: #55646a;
+  color: #ffffff;
+}
+
+/* 撮影停止時の色 */
+#ulvtRecordingToggle.ulvt-toggle-stop {
+  background: #b83b32;
+  color: #ffffff;
+}
+
+/* 操作できない状態 */
+#therapistCaptureControls
+.ulvt-capture-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* タッチ時の視覚的な反応 */
+#therapistCaptureControls
+.ulvt-capture-toggle:active:not(:disabled) {
+  filter: brightness(0.9);
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1734,6 +1790,14 @@ and (orientation: landscape) {
       カメラ操作
     </div>
 
+<!-- 第28回：カメラ開始・停止の統合ボタン -->
+<button
+  id="ulvtCameraToggle"
+  class="ulvt-capture-toggle"
+  type="button">
+  カメラ開始
+</button>
+
     <div class="buttons camera-buttons">
 
       <button id="startCamera"
@@ -1762,6 +1826,14 @@ and (orientation: landscape) {
     <div class="ulvt-capture-title">
       モデル動画の撮影
     </div>
+
+<!-- 第28回：撮影開始・停止の統合ボタン -->
+<button
+  id="ulvtRecordingToggle"
+  class="ulvt-capture-toggle"
+  type="button">
+  撮影開始
+</button>
 
     <div class="buttons camera-buttons">
 
@@ -5181,6 +5253,165 @@ document.getElementById(
 
   // 初期表示
   updateULVTFullscreenHud();
+</script>
+
+<script>
+  /* =====================================
+     第28回：統合ボタンの制御
+     ===================================== */
+
+  // 新しく追加した2つのボタン
+  const ulvtCameraToggle =
+    document.getElementById("ulvtCameraToggle");
+
+  const ulvtRecordingToggle =
+    document.getElementById("ulvtRecordingToggle");
+
+  // 第27回までの既存ボタン
+  const ulvtOldCameraStart =
+    document.getElementById("startCamera");
+
+  const ulvtOldCameraStop =
+    document.getElementById("stopCamera");
+
+  const ulvtOldRecordingStart =
+    document.getElementById("startRecording");
+
+  const ulvtOldRecordingStop =
+    document.getElementById("stopRecording");
+
+
+  // カメラ・撮影の現在状態を確認
+  function updateULVTCaptureButtons() {
+
+    // カメラが起動しているか
+    const cameraActive =
+      cameraStream !== null &&
+      cameraStream.active;
+
+    // 撮影中か
+    const recordingActive =
+      mediaRecorder !== null &&
+      mediaRecorder.state === "recording";
+
+
+    // カメラボタンの文字と色
+    ulvtCameraToggle.textContent =
+      cameraActive
+        ? "カメラ停止"
+        : "カメラ開始";
+
+    ulvtCameraToggle.classList.toggle(
+      "ulvt-toggle-stop",
+      cameraActive
+    );
+
+    ulvtCameraToggle.setAttribute(
+      "aria-pressed",
+      String(cameraActive)
+    );
+
+    ulvtCameraToggle.disabled =
+      cameraActive
+        ? ulvtOldCameraStop.disabled
+        : ulvtOldCameraStart.disabled;
+
+
+    // 撮影ボタンの文字と色
+    ulvtRecordingToggle.textContent =
+      recordingActive
+        ? "撮影停止"
+        : "撮影開始";
+
+    ulvtRecordingToggle.classList.toggle(
+      "ulvt-toggle-stop",
+      recordingActive
+    );
+
+    ulvtRecordingToggle.setAttribute(
+      "aria-pressed",
+      String(recordingActive)
+    );
+
+    ulvtRecordingToggle.disabled =
+      recordingActive
+        ? ulvtOldRecordingStop.disabled
+        : (
+            !cameraActive ||
+            ulvtOldRecordingStart.disabled
+          );
+  }
+
+
+  // カメラ統合ボタン
+  ulvtCameraToggle.addEventListener(
+    "click",
+    () => {
+
+      if (ulvtCameraToggle.disabled) {
+        return;
+      }
+
+      const cameraActive =
+        cameraStream !== null &&
+        cameraStream.active;
+
+      if (cameraActive) {
+
+        // 既存のカメラ停止処理を使用
+        ulvtOldCameraStop.click();
+
+      } else {
+
+        // 既存のカメラ開始処理を使用
+        ulvtOldCameraStart.click();
+
+      }
+
+      updateULVTCaptureButtons();
+    }
+  );
+
+
+  // 撮影統合ボタン
+  ulvtRecordingToggle.addEventListener(
+    "click",
+    () => {
+
+      if (ulvtRecordingToggle.disabled) {
+        return;
+      }
+
+      const recordingActive =
+        mediaRecorder !== null &&
+        mediaRecorder.state === "recording";
+
+      if (recordingActive) {
+
+        // 既存の撮影停止・保存処理
+        ulvtOldRecordingStop.click();
+
+      } else {
+
+        // 既存の撮影開始処理
+        ulvtOldRecordingStart.click();
+
+      }
+
+      updateULVTCaptureButtons();
+    }
+  );
+
+
+  // 非同期のカメラ起動や撮影停止も反映
+  setInterval(
+    updateULVTCaptureButtons,
+    250
+  );
+
+  // 初期状態
+  updateULVTCaptureButtons();
+
 </script>
 </body>
 </html>
