@@ -1759,6 +1759,83 @@ and (orientation: landscape) {
     font-size: 13px;
   }
 }
+
+/* =====================================
+   第30回：撮影設定の折りたたみ
+   ===================================== */
+
+#ulvtCameraSettings {
+  width: 100%;
+  margin: 10px 0 16px;
+  border: 1px solid #c9dcd6;
+  border-radius: 12px;
+  background: #eef5f3;
+  box-sizing: border-box;
+}
+
+/* 折りたたみを開閉する見出し */
+#ulvtCameraSettingsSummary {
+  display: block;
+  position: relative;
+  padding: 15px 44px 15px 16px;
+  min-height: 52px;
+
+  color: #243b38;
+  font-size: 17px;
+  font-weight: bold;
+
+  cursor: pointer;
+  touch-action: manipulation;
+  list-style: none;
+}
+
+/* Safariの標準三角マークを非表示 */
+#ulvtCameraSettingsSummary::-webkit-details-marker {
+  display: none;
+}
+
+/* 閉じているときのマーク */
+#ulvtCameraSettingsSummary::after {
+  content: "＋";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 24px;
+  font-weight: normal;
+}
+
+/* 開いているときのマーク */
+#ulvtCameraSettings[open]
+#ulvtCameraSettingsSummary::after {
+  content: "－";
+}
+
+/* キーボード操作時のフォーカス */
+#ulvtCameraSettingsSummary:focus-visible {
+  outline: 3px solid #147d70;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* 展開した設定内容 */
+#ulvtCameraSettings
+.ulvt-camera-settings-content {
+  padding: 0 12px 12px;
+}
+
+/* 既存の拡大率パネルの余白を調整 */
+#ulvtCameraSettings
+#cameraZoomControls {
+  margin: 0;
+}
+
+/* 疑似全画面では設定見出しを隠す */
+body.ulvt-pseudo-active:has(
+  .ulvt-live-camera.ulvt-pseudo-full
+) #ulvtCameraSettingsSummary {
+  display: none;
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1951,6 +2028,15 @@ and (orientation: landscape) {
   カメラを大きく表示
 </button>
 <!-- 第25回：通常カメラの拡大率調整 -->
+<!-- 第30回：撮影設定の折りたたみ -->
+<details id="ulvtCameraSettings"
+         class="ulvt-camera-settings">
+
+  <summary id="ulvtCameraSettingsSummary">
+    撮影設定（拡大率）
+  </summary>
+
+  <div class="ulvt-camera-settings-content">
 <div id="cameraZoomControls" class="ulvt-zoom-controls">
 
   <span class="ulvt-zoom-title">
@@ -1973,6 +2059,10 @@ and (orientation: landscape) {
 
 </div>
 
+  </div>
+
+</details>
+<!-- 第30回：撮影設定ここまで -->
 
 
     <div class="records">
@@ -5639,6 +5729,68 @@ document.getElementById(
 
   // 初期表示
   ulvt29UpdateDisplay();
+
+</script>
+
+
+<script>
+  /* =====================================
+     第30回：撮影設定の開閉制御
+     ===================================== */
+
+  const ulvt30Settings =
+    document.getElementById("ulvtCameraSettings");
+
+  const ulvt30CameraArea =
+    document.querySelector(
+      ".camera.ulvt-live-camera"
+    );
+
+  // 疑似全画面に入る前の開閉状態
+  let ulvt30WasOpen = false;
+
+  // 前回の疑似全画面状態
+  let ulvt30WasFullscreen = false;
+
+  function ulvt30SyncSettings() {
+
+    const isFullscreen =
+      ulvt30CameraArea.classList.contains(
+        "ulvt-pseudo-full"
+      );
+
+    // 疑似全画面に入ったとき
+    if (isFullscreen && !ulvt30WasFullscreen) {
+
+      // 元の開閉状態を記憶
+      ulvt30WasOpen = ulvt30Settings.open;
+
+      // 拡大率を表示するため開く
+      ulvt30Settings.open = true;
+    }
+
+    // 疑似全画面から戻ったとき
+    if (!isFullscreen && ulvt30WasFullscreen) {
+
+      // 元の開閉状態に戻す
+      ulvt30Settings.open = ulvt30WasOpen;
+    }
+
+    ulvt30WasFullscreen = isFullscreen;
+  }
+
+  // 疑似全画面の切り替えを監視
+  const ulvt30Observer = new MutationObserver(
+    ulvt30SyncSettings
+  );
+
+  ulvt30Observer.observe(ulvt30CameraArea, {
+    attributes: true,
+    attributeFilter: ["class"]
+  });
+
+  // 初期状態を確認
+  ulvt30SyncSettings();
 
 </script>
 </body>
