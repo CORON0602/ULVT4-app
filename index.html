@@ -1570,6 +1570,73 @@ body.ulvt-pseudo-active:has(
     font-size: 16px;
   }
 }
+
+/* =====================================
+   第27回：療法士用撮影操作パネル
+   ===================================== */
+
+#therapistCaptureControls {
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 12px;
+
+  background: #eef5f3;
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+#therapistCaptureControls .ulvt-capture-group
++ .ulvt-capture-group {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #c9dcd6;
+}
+
+#therapistCaptureControls .ulvt-capture-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #243b38;
+  margin-bottom: 8px;
+}
+
+/* カメラ・撮影ボタンを横2列に配置 */
+#therapistCaptureControls .camera-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+#therapistCaptureControls .camera-buttons button {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+
+  padding: 10px 5px;
+  font-size: clamp(14px, 2vw, 17px);
+  font-weight: bold;
+
+  touch-action: manipulation;
+}
+
+/* 状態表示 */
+#therapistCaptureControls #cameraStatus,
+#therapistCaptureControls #recordingStatus {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* iPadの横画面でも押しやすい大きさ */
+@media (min-width: 700px)
+and (orientation: landscape) {
+
+  #therapistCaptureControls
+  .camera-buttons button {
+    min-height: 56px;
+  }
+
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1651,6 +1718,73 @@ body.ulvt-pseudo-active:has(
     playsinline
     muted>
   </video>
+</div>
+
+<!-- =====================================
+     第27回：療法士用 撮影操作パネル
+     ===================================== -->
+
+<div id="therapistCaptureControls"
+     class="ulvt-capture-panel">
+
+  <!-- カメラ操作 -->
+  <div class="ulvt-capture-group">
+
+    <div class="ulvt-capture-title">
+      カメラ操作
+    </div>
+
+    <div class="buttons camera-buttons">
+
+      <button id="startCamera"
+              class="start"
+              type="button">
+        カメラ開始
+      </button>
+
+      <button id="stopCamera"
+              class="stop"
+              type="button">
+        カメラ停止
+      </button>
+
+    </div>
+
+    <p id="cameraStatus" role="status">
+      カメラは停止しています
+    </p>
+
+  </div>
+
+  <!-- モデル動画の撮影操作 -->
+  <div class="ulvt-capture-group">
+
+    <div class="ulvt-capture-title">
+      モデル動画の撮影
+    </div>
+
+    <div class="buttons camera-buttons">
+
+      <button id="startRecording"
+              class="start"
+              type="button">
+        撮影開始
+      </button>
+
+      <button id="stopRecording"
+              class="stop"
+              type="button">
+        撮影停止
+      </button>
+
+    </div>
+
+    <p id="recordingStatus" role="status">
+      撮影待機中
+    </p>
+
+  </div>
+
 </div>
 
 <!-- 第24回：カメラ疑似全画面ボタン -->
@@ -1758,40 +1892,6 @@ body.ulvt-pseudo-active:has(
     </tbody>
   </table>
 </div>
-
-<div class="buttons camera-buttons">
-  <button
-    id="startCamera"
-    class="start">
-    カメラ開始
-  </button>
-
-  <button
-    id="stopCamera"
-    class="stop">
-    カメラ停止
-  </button>
-</div>
-
-<p id="cameraStatus" role="status">
-  カメラは停止しています
-</p>
-
-<h3>モデル動画の撮影</h3>
-
-<div class="buttons camera-buttons">
-  <button id="startRecording" class="start">
-    撮影開始
-  </button>
-
-  <button id="stopRecording" class="stop">
-    撮影停止
-  </button>
-</div>
-
-<p id="recordingStatus" role="status">
-  撮影待機中
-</p>
 
 <h3>撮影したモデル動画</h3>
 
