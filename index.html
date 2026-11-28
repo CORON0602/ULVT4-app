@@ -1693,6 +1693,72 @@ and (orientation: landscape) {
 .ulvt-capture-toggle:active:not(:disabled) {
   filter: brightness(0.9);
 }
+
+/* =====================================
+   第29回：撮影時間・誤操作防止
+   ===================================== */
+
+/* 撮影経過時間パネル */
+#ulvtRecordingTimerPanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 12px 14px;
+
+  background: #e9eeed;
+  border: 2px solid #c9d8d4;
+  border-radius: 10px;
+}
+
+/* 撮影状態の文字 */
+#ulvtRecordingIndicator {
+  font-size: 15px;
+  font-weight: bold;
+  color: #435651;
+}
+
+/* 経過時間 */
+#ulvtRecordingElapsed {
+  font-size: 26px;
+  font-weight: bold;
+  color: #243b38;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 撮影中の表示 */
+#ulvtRecordingTimerPanel.ulvt-is-recording {
+  background: #fff0ee;
+  border-color: #bf4037;
+}
+
+#ulvtRecordingTimerPanel.ulvt-is-recording
+#ulvtRecordingIndicator,
+#ulvtRecordingTimerPanel.ulvt-is-recording
+#ulvtRecordingElapsed {
+  color: #aa3028;
+}
+
+/* 撮影中はカメラ停止操作を禁止 */
+#therapistCaptureControls.ulvt-recording-lock
+#ulvtCameraToggle {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+
+/* iPadでの視認性 */
+@media (max-width: 600px) {
+  #ulvtRecordingElapsed {
+    font-size: 23px;
+  }
+
+  #ulvtRecordingIndicator {
+    font-size: 13px;
+  }
+}
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#147d70">
@@ -1827,6 +1893,22 @@ and (orientation: landscape) {
       モデル動画の撮影
     </div>
 
+
+<!-- 第29回：撮影経過時間表示 -->
+<div id="ulvtRecordingTimerPanel"
+     class="ulvt-recording-timer-panel"
+     role="status">
+
+  <span id="ulvtRecordingIndicator">
+    ● 撮影待機中
+  </span>
+
+  <strong id="ulvtRecordingElapsed">
+    00:00
+  </strong>
+
+</div>
+
 <!-- 第28回：撮影開始・停止の統合ボタン -->
 <button
   id="ulvtRecordingToggle"
@@ -1834,6 +1916,7 @@ and (orientation: landscape) {
   type="button">
   撮影開始
 </button>
+
 
     <div class="buttons camera-buttons">
 
@@ -5411,6 +5494,151 @@ document.getElementById(
 
   // 初期状態
   updateULVTCaptureButtons();
+
+</script>
+
+<script>
+  /* =====================================
+     第29回：撮影経過時間・誤操作防止
+     ===================================== */
+
+  const ulvt29TimerPanel =
+    document.getElementById("ulvtRecordingTimerPanel");
+
+  const ulvt29Indicator =
+    document.getElementById("ulvtRecordingIndicator");
+
+  const ulvt29Elapsed =
+    document.getElementById("ulvtRecordingElapsed");
+
+  const ulvt29Panel =
+    document.getElementById("therapistCaptureControls");
+
+  // 撮影開始・終了時刻
+  let ulvt29StartTime = null;
+  let ulvt29LastSeconds = 0;
+
+  // 前回の録画状態
+  let ulvt29WasRecording = false;
+
+  // 経過時間を 00:00 形式へ変換
+  function ulvt29FormatTime(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return (
+      String(minutes).padStart(2, "0") +
+      ":" +
+      String(seconds).padStart(2, "0")
+    );
+  }
+
+  // 現在の録画状態を確認
+  function ulvt29IsRecording() {
+    return (
+      mediaRecorder !== null &&
+      mediaRecorder.state === "recording"
+    );
+  }
+
+  // 経過時間・表示状態を更新
+  function ulvt29UpdateDisplay() {
+
+    const isRecording = ulvt29IsRecording();
+
+    // 撮影を開始した直後
+    if (isRecording && !ulvt29WasRecording) {
+      ulvt29StartTime = Date.now();
+      ulvt29LastSeconds = 0;
+    }
+
+    // 撮影中の経過時間を計算
+    if (isRecording && ulvt29StartTime !== null) {
+      ulvt29LastSeconds = Math.floor(
+        (Date.now() - ulvt29StartTime) / 1000
+      );
+    }
+
+    // 撮影終了を検出
+    if (!isRecording && ulvt29WasRecording) {
+      ulvt29Indicator.textContent = "● 撮影終了";
+    } else if (isRecording) {
+      ulvt29Indicator.textContent = "● 撮影中";
+    } else if (ulvt29StartTime === null) {
+      ulvt29Indicator.textContent = "● 撮影待機中";
+    }
+
+    // 経過時間を表示
+    ulvt29Elapsed.textContent =
+      ulvt29FormatTime(ulvt29LastSeconds);
+
+    // 撮影中の色を切り替え
+    ulvt29TimerPanel.classList.toggle(
+      "ulvt-is-recording",
+      isRecording
+    );
+
+    // 撮影中はカメラ停止を禁止
+    ulvt29Panel.classList.toggle(
+      "ulvt-recording-lock",
+      isRecording
+    );
+
+    if (isRecording) {
+      ulvtCameraToggle.disabled = true;
+    }
+
+    ulvt29WasRecording = isRecording;
+  }
+
+  // カメラ操作の誤停止を防止
+  // capture: true で既存処理より先に確認
+  ulvtCameraToggle.addEventListener(
+    "click",
+    function(event) {
+
+      if (ulvt29IsRecording()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        alert(
+          "撮影中はカメラを停止できません。\n" +
+          "先に撮影を終了してください。"
+        );
+        return;
+      }
+    },
+    true
+  );
+
+  // 撮影停止時の確認
+  ulvtRecordingToggle.addEventListener(
+    "click",
+    function(event) {
+
+      // 撮影中の停止操作のみ確認
+      if (!ulvt29IsRecording()) {
+        return;
+      }
+
+      const confirmed = confirm(
+        "撮影を終了して動画を保存しますか？"
+      );
+
+      // キャンセルした場合
+      if (!confirmed) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    },
+    true
+  );
+
+  // 状態表示を定期更新
+  setInterval(ulvt29UpdateDisplay, 100);
+
+  // 初期表示
+  ulvt29UpdateDisplay();
 
 </script>
 </body>
